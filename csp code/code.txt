@@ -1,0 +1,1917 @@
+from flask import Flask, request, jsonify, render_template_string
+from datetime import datetime
+import random
+
+app = Flask(__name__)
+
+# ============================================================
+# DEMO LOGIN
+# ============================================================
+
+DEMO_EMAIL = "admin@gmail.com"
+DEMO_MOBILE = "9876543210"
+DEMO_PASSWORD = "123456"
+
+
+# ============================================================
+# IN-MEMORY APPLICATION STORAGE
+# ============================================================
+
+applications = {}
+
+
+# ============================================================
+# DEMO APPLICATIONS
+# ============================================================
+
+demo_applications = {
+    "GOV123456": {
+        "reference": "GOV123456",
+        "type": "Government Application",
+        "name": "Demo Applicant",
+        "status": "Submitted",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "Today",
+                "message": "Application submitted successfully."
+            }
+        ]
+    },
+
+    "GOV234567": {
+        "reference": "GOV234567",
+        "type": "Government Application",
+        "name": "Demo Applicant",
+        "status": "Under Verification",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "10 Aug 2026",
+                "message": "Application submitted."
+            },
+            {
+                "status": "Under Verification",
+                "date": "12 Aug 2026",
+                "message": "Documents are being verified."
+            }
+        ]
+    },
+
+    "GOV345678": {
+        "reference": "GOV345678",
+        "type": "Government Application",
+        "name": "Demo Applicant",
+        "status": "Approved",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "05 Aug 2026",
+                "message": "Application submitted."
+            },
+            {
+                "status": "Under Verification",
+                "date": "07 Aug 2026",
+                "message": "Documents verified."
+            },
+            {
+                "status": "Approved",
+                "date": "10 Aug 2026",
+                "message": "Application approved."
+            }
+        ]
+    },
+
+    "GOV456789": {
+        "reference": "GOV456789",
+        "type": "Government Application",
+        "name": "Demo Applicant",
+        "status": "Rejected",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "05 Aug 2026",
+                "message": "Application submitted."
+            },
+            {
+                "status": "Rejected",
+                "date": "09 Aug 2026",
+                "message": "Application was rejected."
+            }
+        ]
+    },
+
+    "CMP123456": {
+        "reference": "CMP123456",
+        "type": "Complaint",
+        "name": "Demo Citizen",
+        "category": "Government Service",
+        "priority": "Medium",
+        "status": "Submitted",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "Today",
+                "message": "Complaint has been registered."
+            }
+        ]
+    },
+
+    "CMP234567": {
+        "reference": "CMP234567",
+        "type": "Complaint",
+        "name": "Demo Citizen",
+        "category": "Delay in Application",
+        "priority": "High",
+        "status": "In Progress",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "15 Aug 2026",
+                "message": "Complaint registered."
+            },
+            {
+                "status": "Under Verification",
+                "date": "16 Aug 2026",
+                "message": "Complaint is being verified."
+            },
+            {
+                "status": "In Progress",
+                "date": "18 Aug 2026",
+                "message": "Concern forwarded to the concerned department."
+            }
+        ]
+    },
+
+    "CMP345678": {
+        "reference": "CMP345678",
+        "type": "Complaint",
+        "name": "Demo Citizen",
+        "category": "Technical Issue",
+        "priority": "Medium",
+        "status": "Resolved",
+        "history": [
+            {
+                "status": "Submitted",
+                "date": "10 Aug 2026",
+                "message": "Complaint registered."
+            },
+            {
+                "status": "In Progress",
+                "date": "11 Aug 2026",
+                "message": "Complaint is being handled."
+            },
+            {
+                "status": "Resolved",
+                "date": "14 Aug 2026",
+                "message": "Complaint has been resolved."
+            }
+        ]
+    }
+}
+
+
+# ============================================================
+# GOVERNMENT SERVICES
+# ============================================================
+
+services = [
+    {
+        "name": "Birth / Death Certificate",
+        "icon": "📄",
+        "description": "Apply and access birth/death registration services.",
+        "url": "https://crsorgi.gov.in/"
+    },
+    {
+        "name": "Land Records",
+        "icon": "🌱",
+        "description": "View Andhra Pradesh land records.",
+        "url": "https://meebhoomi.ap.gov.in/"
+    },
+    {
+        "name": "Driving Licence",
+        "icon": "🚗",
+        "description": "Driving licence and vehicle services.",
+        "url": "https://parivahan.gov.in/"
+    },
+    {
+        "name": "Passport",
+        "icon": "🌐",
+        "description": "Passport application services.",
+        "url": "https://www.passportindia.gov.in/"
+    },
+    {
+        "name": "Tax Services",
+        "icon": "💰",
+        "description": "Income tax and taxpayer services.",
+        "url": "https://www.incometax.gov.in/"
+    },
+    {
+        "name": "Pension Services",
+        "icon": "👴",
+        "description": "Pension and NPS services.",
+        "url": "https://www.npscra.nsdl.co.in/"
+    },
+    {
+        "name": "Scholarships",
+        "icon": "🎓",
+        "description": "National Scholarship Portal.",
+        "url": "https://scholarships.gov.in/"
+    },
+    {
+        "name": "Housing",
+        "icon": "🏠",
+        "description": "PM Awas Yojana services.",
+        "url": "https://pmaymis.gov.in/"
+    }
+]
+
+
+# ============================================================
+# SCHEMES
+# ============================================================
+
+schemes = [
+    {
+        "name": "PM Kisan Samman Nidhi",
+        "age": 18,
+        "max_age": None,
+        "income": 600000,
+        "occupation": "Farmer",
+        "description": "Financial support for eligible farmers."
+    },
+
+    {
+        "name": "Ayushman Bharat",
+        "age": 0,
+        "max_age": None,
+        "income": 500000,
+        "occupation": "All",
+        "description": "Health coverage for eligible families."
+    },
+
+    {
+        "name": "PM Awas Yojana",
+        "age": 21,
+        "max_age": None,
+        "income": 300000,
+        "occupation": "All",
+        "description": "Housing assistance for eligible beneficiaries."
+    },
+
+    {
+        "name": "Atal Pension Yojana",
+        "age": 18,
+        "max_age": 40,
+        "income": 1500000,
+        "occupation": "All",
+        "description": "Pension savings scheme."
+    },
+
+    {
+        "name": "NSP Post-Matric Scholarship",
+        "age": 16,
+        "max_age": 30,
+        "income": 250000,
+        "occupation": "Student",
+        "description": "Scholarship support for eligible students."
+    },
+
+    {
+        "name": "PM Mudra Yojana",
+        "age": 18,
+        "max_age": None,
+        "income": 10000000,
+        "occupation": "Self-employed",
+        "description": "Financial support for eligible micro businesses."
+    },
+
+    {
+        "name": "MGNREGA",
+        "age": 18,
+        "max_age": None,
+        "income": 300000,
+        "occupation": "Unemployed",
+        "description": "Employment support under MGNREGA."
+    },
+
+    {
+        "name": "PM Vishwakarma",
+        "age": 18,
+        "max_age": None,
+        "income": 500000,
+        "occupation": "Self-employed",
+        "description": "Support for eligible traditional artisans."
+    }
+]
+
+
+# ============================================================
+# AI CHATBOT
+# ============================================================
+
+service_data = {
+    "birth": {
+        "keywords": ["birth", "death", "certificate"],
+        "answer": """
+📄 Birth / Death Certificate
+
+You can use the Civil Registration System portal.
+
+Documents may include:
+• Identity proof
+• Address proof
+• Hospital/medical record
+• Parent/guardian details
+
+Official portal:
+https://crsorgi.gov.in/
+"""
+    },
+
+    "land": {
+        "keywords": ["land", "property", "meebhoomi", "survey"],
+        "answer": """
+🌱 Land Records
+
+For Andhra Pradesh land information, use MeeBhoomi.
+
+You may need:
+• Survey number
+• Owner details
+• Land information
+
+Official portal:
+https://meebhoomi.ap.gov.in/
+"""
+    },
+
+    "license": {
+        "keywords": ["license", "licence", "driving"],
+        "answer": """
+🚗 Driving Licence
+
+Use the official Parivahan portal.
+
+Services include:
+• Learner Licence
+• Permanent Licence
+• Renewal
+• Driving test appointment
+
+Official portal:
+https://parivahan.gov.in/
+"""
+    },
+
+    "passport": {
+        "keywords": ["passport"],
+        "answer": """
+🌐 Passport
+
+Basic process:
+
+1. Register
+2. Fill application
+3. Pay fee
+4. Book appointment
+5. Visit Passport Seva Kendra
+
+Official portal:
+https://www.passportindia.gov.in/
+"""
+    },
+
+    "pension": {
+        "keywords": ["pension", "nps", "retirement"],
+        "answer": """
+👴 Pension Services
+
+Government pension-related services include NPS
+and other pension schemes.
+
+Official portal:
+https://www.npscra.nsdl.co.in/
+"""
+    },
+
+    "scholarship": {
+        "keywords": ["scholarship", "student scholarship", "nsp"],
+        "answer": """
+🎓 Scholarships
+
+The National Scholarship Portal provides
+information and application facilities.
+
+Common documents:
+• Aadhaar
+• Income certificate
+• Marksheets
+• Bank details
+
+Official portal:
+https://scholarships.gov.in/
+"""
+    },
+
+    "housing": {
+        "keywords": ["housing", "house", "awas", "pmay"],
+        "answer": """
+🏠 Housing
+
+PM Awas Yojana provides housing-related
+government support.
+
+Official portal:
+https://pmaymis.gov.in/
+"""
+    }
+}
+
+
+def get_ai_response(text):
+    text = text.lower()
+
+    if any(word in text for word in
+           ["status", "track", "reference"]):
+
+        return """
+📊 Application Status
+
+Open the Application Status section.
+
+Enter your:
+• GOV reference
+• APT reference
+• CMP complaint reference
+
+Example:
+GOV123456
+CMP123456
+"""
+
+    if any(word in text for word in
+           ["complaint", "grievance"]):
+
+        return """
+🚨 Complaints
+
+Open the Complaints section.
+
+Fill in:
+• Name
+• Mobile
+• Category
+• Priority
+• Complaint description
+
+You will receive a CMP reference number
+that can be used to track the complaint.
+"""
+
+    if "eligib" in text:
+
+        return """
+✅ Eligibility
+
+Open the Eligibility section and enter:
+
+• Age
+• Gender
+• Income
+• State
+• Category
+• Occupation
+
+GovAssist AI will show matching schemes.
+"""
+
+    if any(word in text for word in
+           ["hello", "hi", "namaste"]):
+
+        return """
+Namaste! 🇮🇳
+
+I'm GovAssist AI.
+
+I can help you with:
+
+• Government schemes
+• Certificates
+• Land records
+• Driving licence
+• Passport
+• Tax
+• Pension
+• Scholarships
+• Housing
+• Eligibility
+• Appointments
+• Complaints
+• Application tracking
+"""
+
+    for service in service_data.values():
+
+        for keyword in service["keywords"]:
+
+            if keyword in text:
+                return service["answer"]
+
+    return """
+🤖 I can help you with government services.
+
+Try asking:
+
+• How can I get a birth certificate?
+• How can I check land records?
+• How can I apply for pension?
+• How can I apply for passport?
+• How can I check application status?
+• How can I register a complaint?
+"""
+
+
+# ============================================================
+# REFERENCE NUMBER
+# ============================================================
+
+def generate_reference(prefix):
+    while True:
+
+        reference = prefix + str(
+            random.randint(100000, 999999)
+        )
+
+        if reference not in applications:
+            return reference
+
+
+# ============================================================
+# MAIN HTML
+# ============================================================
+
+HTML = """
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>GovAssist AI</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+header {
+    background: linear-gradient(
+        135deg,
+        #1e3a8a,
+        #2563eb,
+        #0284c7
+    );
+
+    color: white;
+    padding: 25px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 32px;
+}
+
+header p {
+    margin-top: 8px;
+    color: #dbeafe;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 25px;
+}
+
+nav {
+    background: white;
+    display: flex;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+
+nav button {
+    flex: 1;
+    min-width: 120px;
+    padding: 15px;
+    border: none;
+    background: white;
+    cursor: pointer;
+    color: #64748b;
+}
+
+nav button:hover,
+nav button.active {
+    color: #1e40af;
+    border-bottom: 3px solid #1e40af;
+}
+
+.section {
+    display: none;
+}
+
+.section.active {
+    display: block;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    margin-bottom: 20px;
+    border-radius: 15px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.07);
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 12px;
+    margin: 7px 0 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+}
+
+button.primary {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 8px;
+    background: #1e40af;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button.primary:hover {
+    background: #1d4ed8;
+}
+
+.chat {
+    height: 420px;
+    overflow-y: auto;
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+.message {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    max-width: 80%;
+    white-space: pre-line;
+}
+
+.bot {
+    background: #e8f4fd;
+}
+
+.user {
+    background: #1e40af;
+    color: white;
+    margin-left: auto;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-input input {
+    margin: 0;
+}
+
+.chat-input button {
+    width: 60px;
+}
+
+.services {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.service {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.service:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,.1);
+}
+
+.service-icon {
+    font-size: 30px;
+}
+
+.service h3 {
+    margin: 10px 0;
+}
+
+.service p {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.service a {
+    display: inline-block;
+    margin-top: 12px;
+    color: #2563eb;
+}
+
+.scheme {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 10px;
+}
+
+.success {
+    background: #f0fdf4;
+    color: #166534;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+.status {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.submitted {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.verification {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.progress {
+    background: #fefce8;
+    color: #a16207;
+}
+
+.approved,
+.resolved {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.rejected {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.timeline {
+    margin-top: 20px;
+    border-left: 3px solid #bfdbfe;
+    padding-left: 20px;
+}
+
+.timeline-item {
+    margin-bottom: 20px;
+}
+
+.login {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+        135deg,
+        #0f172a,
+        #1e3a8a,
+        #2563eb
+    );
+}
+
+.login-box {
+    width: 400px;
+    max-width: 90%;
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+}
+
+.login-box h1 {
+    color: #1e40af;
+    margin-bottom: 10px;
+}
+
+.logout {
+    margin-top: 10px;
+    padding: 8px 15px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+@media(max-width:800px) {
+
+    .services {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+}
+
+@media(max-width:500px) {
+
+    .services {
+        grid-template-columns: 1fr;
+    }
+
+    nav button {
+        min-width: 50%;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- LOGIN -->
+
+<div id="loginPage" class="login">
+
+<div class="login-box">
+
+<h1>🇮🇳 GovAssist AI</h1>
+
+<p>Intelligent Government Service Assistant</p>
+
+<br>
+
+<label>Email / Mobile</label>
+
+<input id="loginEmail"
+       placeholder="Enter email or mobile">
+
+<label>Password</label>
+
+<input id="loginPassword"
+       type="password"
+       placeholder="Enter password">
+
+<button class="primary"
+        onclick="login()">
+
+🔐 Login
+
+</button>
+
+<p id="loginMessage"></p>
+
+<br>
+
+<small>
+Demo Login:<br>
+admin@gmail.com / 123456
+</small>
+
+</div>
+
+</div>
+
+
+<!-- APPLICATION -->
+
+<div id="appPage" style="display:none">
+
+<header>
+
+<h1>🇮🇳 GovAssist AI</h1>
+
+<p>Your Intelligent Government Service Assistant</p>
+
+<button class="logout"
+        onclick="logout()">
+
+Logout
+
+</button>
+
+</header>
+
+
+<nav>
+
+<button class="active"
+        onclick="showSection('chat',this)">
+🤖 Chat
+</button>
+
+<button onclick="showSection('services',this)">
+🏛️ Services
+</button>
+
+<button onclick="showSection('eligibility',this)">
+✅ Eligibility
+</button>
+
+<button onclick="showSection('appointment',this)">
+📅 Appointments
+</button>
+
+<button onclick="showSection('complaint',this)">
+🚨 Complaints
+</button>
+
+<button onclick="showSection('status',this)">
+📊 Status
+</button>
+
+</nav>
+
+
+<div class="container">
+
+
+<!-- CHAT -->
+
+<section id="chat"
+         class="section active">
+
+<div class="card">
+
+<h2>🤖 AI Government Assistant</h2>
+
+<br>
+
+<div id="messages"
+     class="chat">
+
+<div class="message bot">
+Namaste! 🇮🇳 I'm GovAssist AI.
+
+I can help you with government schemes,
+certificates, land records, passport,
+driving licence, pension, scholarships,
+appointments, complaints and application status.
+
+What would you like to know?
+</div>
+
+</div>
+
+<div class="chat-input">
+
+<input id="chatInput"
+       placeholder="Ask about a government service..."
+       onkeydown="if(event.key==='Enter') sendMessage()">
+
+<button class="primary"
+        onclick="sendMessage()">
+➤
+</button>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- SERVICES -->
+
+<section id="services"
+         class="section">
+
+<div class="card">
+
+<h2>🏛️ Government Services</h2>
+
+<br>
+
+<div class="services">
+
+{% for service in services %}
+
+<div class="service">
+
+<div class="service-icon">
+{{ service.icon }}
+</div>
+
+<h3>
+{{ service.name }}
+</h3>
+
+<p>
+{{ service.description }}
+</p>
+
+<a href="{{ service.url }}"
+   target="_blank">
+
+Official Website
+
+</a>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- ELIGIBILITY -->
+
+<section id="eligibility"
+         class="section">
+
+<div class="card">
+
+<h2>✅ Scheme Eligibility Checker</h2>
+
+<br>
+
+<label>Age</label>
+
+<input id="age"
+       type="number"
+       min="0">
+
+<label>Annual Income (₹)</label>
+
+<input id="income"
+       type="number"
+       min="0">
+
+<label>Occupation</label>
+
+<select id="occupation">
+
+<option value="">Select</option>
+<option>Student</option>
+<option>Farmer</option>
+<option>Employed</option>
+<option>Self-employed</option>
+<option>Unemployed</option>
+<option>Retired</option>
+
+</select>
+
+<button class="primary"
+        onclick="checkEligibility()">
+
+Check Eligibility
+
+</button>
+
+<div id="eligibilityResult"></div>
+
+</div>
+
+</section>
+
+
+<!-- APPOINTMENT -->
+
+<section id="appointment"
+         class="section">
+
+<div class="card">
+
+<h2>📅 Book Appointment</h2>
+
+<br>
+
+<label>Name</label>
+
+<input id="appointmentName">
+
+<label>Mobile Number</label>
+
+<input id="appointmentPhone">
+
+<label>Service</label>
+
+<select id="appointmentService">
+
+<option>Birth / Death Certificate</option>
+<option>Land Records</option>
+<option>Driving Licence</option>
+<option>Passport</option>
+<option>Tax Services</option>
+<option>Pension Services</option>
+
+</select>
+
+<label>Date</label>
+
+<input id="appointmentDate"
+       type="date">
+
+<button class="primary"
+        onclick="bookAppointment()">
+
+Book Appointment
+
+</button>
+
+<div id="appointmentResult"></div>
+
+</div>
+
+</section>
+
+
+<!-- COMPLAINT -->
+
+<section id="complaint"
+         class="section">
+
+<div class="card">
+
+<h2>🚨 Register Complaint</h2>
+
+<br>
+
+<label>Full Name</label>
+
+<input id="complaintName">
+
+<label>Mobile Number</label>
+
+<input id="complaintPhone">
+
+<label>Category</label>
+
+<select id="complaintCategory">
+
+<option>Government Service</option>
+<option>Delay in Application</option>
+<option>Corruption / Bribery</option>
+<option>Technical Issue</option>
+<option>Staff Behaviour</option>
+<option>Other</option>
+
+</select>
+
+<label>Priority</label>
+
+<select id="complaintPriority">
+
+<option>Low</option>
+<option>Medium</option>
+<option>High</option>
+<option>Urgent</option>
+
+</select>
+
+<label>Description</label>
+
+<textarea id="complaintDescription"
+          rows="5"></textarea>
+
+<button class="primary"
+        onclick="registerComplaint()">
+
+🚨 Register Complaint
+
+</button>
+
+<div id="complaintResult"></div>
+
+</div>
+
+</section>
+
+
+<!-- STATUS -->
+
+<section id="status"
+         class="section">
+
+<div class="card">
+
+<h2>📊 Application Status</h2>
+
+<br>
+
+<label>
+Application / Appointment / Complaint Reference
+</label>
+
+<input id="referenceNumber"
+       placeholder="Example: GOV123456">
+
+<button class="primary"
+        onclick="checkStatus()">
+
+🔎 Track Status
+
+</button>
+
+<div id="statusResult"></div>
+
+</div>
+
+
+<div class="card">
+
+<h3>🧪 Demo References</h3>
+
+<br>
+
+<p>GOV123456 → Submitted</p>
+<p>GOV234567 → Under Verification</p>
+<p>GOV345678 → Approved</p>
+<p>GOV456789 → Rejected</p>
+<p>CMP123456 → Submitted</p>
+<p>CMP234567 → In Progress</p>
+<p>CMP345678 → Resolved</p>
+
+</div>
+
+</section>
+
+
+</div>
+
+</div>
+
+
+<script>
+
+function login() {
+
+    const email =
+        document.getElementById("loginEmail").value;
+
+    const password =
+        document.getElementById("loginPassword").value;
+
+    if (
+        (email === "admin@gmail.com" ||
+         email === "9876543210") &&
+        password === "123456"
+    ) {
+
+        document.getElementById("loginPage")
+            .style.display = "none";
+
+        document.getElementById("appPage")
+            .style.display = "block";
+
+    } else {
+
+        document.getElementById("loginMessage")
+            .innerText =
+            "❌ Invalid email/mobile or password.";
+
+    }
+}
+
+
+function logout() {
+
+    document.getElementById("appPage")
+        .style.display = "none";
+
+    document.getElementById("loginPage")
+        .style.display = "flex";
+
+}
+
+
+function showSection(id, button) {
+
+    document.querySelectorAll(".section")
+        .forEach(section => {
+            section.classList.remove("active");
+        });
+
+    document.getElementById(id)
+        .classList.add("active");
+
+    document.querySelectorAll("nav button")
+        .forEach(btn => {
+            btn.classList.remove("active");
+        });
+
+    button.classList.add("active");
+
+}
+
+
+function addMessage(text, user=false) {
+
+    const messages =
+        document.getElementById("messages");
+
+    const div =
+        document.createElement("div");
+
+    div.className =
+        user
+        ? "message user"
+        : "message bot";
+
+    div.innerText = text;
+
+    messages.appendChild(div);
+
+    messages.scrollTop =
+        messages.scrollHeight;
+}
+
+
+async function sendMessage() {
+
+    const input =
+        document.getElementById("chatInput");
+
+    const text =
+        input.value.trim();
+
+    if (!text)
+        return;
+
+    addMessage(text, true);
+
+    input.value = "";
+
+    const response =
+        await fetch("/chat", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+
+            body: JSON.stringify({
+                message: text
+            })
+
+        });
+
+    const data =
+        await response.json();
+
+    addMessage(data.response, false);
+}
+
+
+async function checkEligibility() {
+
+    const age =
+        document.getElementById("age").value;
+
+    const income =
+        document.getElementById("income").value;
+
+    const occupation =
+        document.getElementById("occupation").value;
+
+    const response =
+        await fetch("/eligibility", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+
+            body: JSON.stringify({
+                age: age,
+                income: income,
+                occupation: occupation
+            })
+
+        });
+
+    const data =
+        await response.json();
+
+    let html = "";
+
+    if (data.schemes.length === 0) {
+
+        html =
+            '<div class="scheme">' +
+            'No matching schemes found.' +
+            '</div>';
+
+    } else {
+
+        data.schemes.forEach(scheme => {
+
+            html +=
+                '<div class="scheme">' +
+                '<h3>✓ ' +
+                scheme.name +
+                '</h3>' +
+                '<p>' +
+                scheme.description +
+                '</p>' +
+                '</div>';
+
+        });
+
+    }
+
+    document.getElementById(
+        "eligibilityResult"
+    ).innerHTML = html;
+}
+
+
+async function bookAppointment() {
+
+    const data = {
+
+        name:
+            document.getElementById(
+                "appointmentName"
+            ).value,
+
+        phone:
+            document.getElementById(
+                "appointmentPhone"
+            ).value,
+
+        service:
+            document.getElementById(
+                "appointmentService"
+            ).value,
+
+        date:
+            document.getElementById(
+                "appointmentDate"
+            ).value
+
+    };
+
+    const response =
+        await fetch("/appointment", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+
+            body: JSON.stringify(data)
+
+        });
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "appointmentResult"
+    ).innerHTML =
+
+        '<div class="success">' +
+
+        '<strong>✅ Appointment booked!</strong>' +
+
+        '<br><br>Reference Number:<br>' +
+
+        '<h2>' +
+        result.reference +
+        '</h2>' +
+
+        '</div>';
+}
+
+
+async function registerComplaint() {
+
+    const data = {
+
+        name:
+            document.getElementById(
+                "complaintName"
+            ).value,
+
+        phone:
+            document.getElementById(
+                "complaintPhone"
+            ).value,
+
+        category:
+            document.getElementById(
+                "complaintCategory"
+            ).value,
+
+        priority:
+            document.getElementById(
+                "complaintPriority"
+            ).value,
+
+        description:
+            document.getElementById(
+                "complaintDescription"
+            ).value
+
+    };
+
+    const response =
+        await fetch("/complaint", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+
+            body: JSON.stringify(data)
+
+        });
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "complaintResult"
+    ).innerHTML =
+
+        '<div class="success">' +
+
+        '<strong>✅ Complaint registered!</strong>' +
+
+        '<br><br>Complaint Reference:<br>' +
+
+        '<h2>' +
+        result.reference +
+        '</h2>' +
+
+        '</div>';
+}
+
+
+async function checkStatus() {
+
+    const reference =
+        document.getElementById(
+            "referenceNumber"
+        ).value.trim();
+
+    const response =
+        await fetch(
+            "/status/" +
+            reference
+        );
+
+    const data =
+        await response.json();
+
+    if (!data.found) {
+
+        document.getElementById(
+            "statusResult"
+        ).innerHTML =
+
+            '<div class="status rejected">' +
+            '❌ Reference number not found.' +
+            '</div>';
+
+        return;
+    }
+
+    let historyHTML = "";
+
+    data.application.history
+        .forEach(item => {
+
+            historyHTML +=
+
+                '<div class="timeline-item">' +
+
+                '<h3>' +
+                item.status +
+                '</h3>' +
+
+                '<small>' +
+                item.date +
+                '</small>' +
+
+                '<p>' +
+                item.message +
+                '</p>' +
+
+                '</div>';
+
+        });
+
+    const status =
+        data.application.status;
+
+    let statusClass =
+        "submitted";
+
+    if (status === "Approved")
+        statusClass = "approved";
+
+    else if (status === "Rejected")
+        statusClass = "rejected";
+
+    else if (status === "Resolved")
+        statusClass = "resolved";
+
+    else if (status === "In Progress")
+        statusClass = "progress";
+
+    else if (
+        status === "Under Verification"
+    )
+        statusClass = "verification";
+
+    document.getElementById(
+        "statusResult"
+    ).innerHTML =
+
+        '<div class="status ' +
+        statusClass +
+        '">' +
+
+        '<h2>' +
+        data.application.type +
+        '</h2>' +
+
+        '<br>' +
+
+        '<strong>Reference:</strong> ' +
+        data.application.reference +
+
+        '<br><br>' +
+
+        '<strong>Name:</strong> ' +
+        data.application.name +
+
+        '<br><br>' +
+
+        '<strong>Status:</strong> ' +
+        data.application.status +
+
+        '<h3 style="margin-top:25px">' +
+        '📌 Status Timeline' +
+        '</h3>' +
+
+        '<div class="timeline">' +
+        historyHTML +
+        '</div>' +
+
+        '</div>';
+}
+
+</script>
+
+</body>
+</html>
+"""
+
+
+# ============================================================
+# ROUTES
+# ============================================================
+
+@app.route("/")
+def home():
+    return render_template_string(
+        HTML,
+        services=services
+    )
+
+
+# ============================================================
+# CHAT API
+# ============================================================
+
+@app.route("/chat", methods=["POST"])
+def chat():
+
+    data = request.get_json()
+
+    message = data.get("message", "")
+
+    response = get_ai_response(message)
+
+    return jsonify({
+        "response": response
+    })
+
+
+# ============================================================
+# ELIGIBILITY API
+# ============================================================
+
+@app.route("/eligibility", methods=["POST"])
+def eligibility():
+
+    data = request.get_json()
+
+    try:
+        age = int(data.get("age", 0))
+    except:
+        age = 0
+
+    try:
+        income = float(data.get("income", 0))
+    except:
+        income = 0
+
+    occupation = data.get("occupation", "")
+
+    matching_schemes = []
+
+    for scheme in schemes:
+
+        if age < scheme["age"]:
+            continue
+
+        if (
+            scheme["max_age"] is not None
+            and age > scheme["max_age"]
+        ):
+            continue
+
+        if income > scheme["income"]:
+            continue
+
+        if (
+            scheme["occupation"] != "All"
+            and scheme["occupation"] != occupation
+        ):
+            continue
+
+        matching_schemes.append({
+            "name": scheme["name"],
+            "description": scheme["description"]
+        })
+
+    return jsonify({
+        "schemes": matching_schemes
+    })
+
+
+# ============================================================
+# APPOINTMENT API
+# ============================================================
+
+@app.route("/appointment", methods=["POST"])
+def appointment():
+
+    data = request.get_json()
+
+    reference = generate_reference("APT")
+
+    appointment_data = {
+        "reference": reference,
+        "type": "Appointment",
+        "name": data.get("name"),
+        "phone": data.get("phone"),
+        "service": data.get("service"),
+        "date": data.get("date"),
+        "status": "Submitted",
+        "createdAt": datetime.now().strftime(
+            "%d-%m-%Y %H:%M:%S"
+        ),
+        "history": [
+            {
+                "status": "Submitted",
+                "date": datetime.now().strftime(
+                    "%d-%m-%Y %H:%M:%S"
+                ),
+                "message":
+                    "Appointment booked successfully."
+            }
+        ]
+    }
+
+    applications[reference] = appointment_data
+
+    return jsonify({
+        "success": True,
+        "reference": reference
+    })
+
+
+# ============================================================
+# COMPLAINT API
+# ============================================================
+
+@app.route("/complaint", methods=["POST"])
+def complaint():
+
+    data = request.get_json()
+
+    reference = generate_reference("CMP")
+
+    complaint_data = {
+        "reference": reference,
+        "type": "Complaint",
+        "name": data.get("name"),
+        "phone": data.get("phone"),
+        "category": data.get("category"),
+        "priority": data.get("priority"),
+        "description": data.get("description"),
+        "status": "Submitted",
+        "createdAt": datetime.now().strftime(
+            "%d-%m-%Y %H:%M:%S"
+        ),
+        "history": [
+            {
+                "status": "Submitted",
+                "date": datetime.now().strftime(
+                    "%d-%m-%Y %H:%M:%S"
+                ),
+                "message":
+                    "Complaint registered successfully."
+            }
+        ]
+    }
+
+    applications[reference] = complaint_data
+
+    return jsonify({
+        "success": True,
+        "reference": reference
+    })
+
+
+# ============================================================
+# STATUS API
+# ============================================================
+
+@app.route("/status/<reference>")
+def status(reference):
+
+    reference = reference.upper()
+
+    application = (
+        demo_applications.get(reference)
+        or applications.get(reference)
+    )
+
+    if not application:
+
+        return jsonify({
+            "found": False
+        })
+
+    return jsonify({
+        "found": True,
+        "application": application
+    })
+
+
+# ============================================================
+# RUN APPLICATION
+# ============================================================
+
+if __name__ == "__main__":
+
+    app.run(
+        debug=True,
+        host="127.0.0.1",
+        port=5000
+    )
